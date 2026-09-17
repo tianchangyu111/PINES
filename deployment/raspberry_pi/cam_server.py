@@ -224,12 +224,26 @@ BIOSENSOR_MODE = 'none'    # 'v29' | 'none'
 
 SEPARATE_CLASSIFIER_PATH = os.path.expanduser('~/camera_web/final_classifier/best_classifier.pt')
 SEPARATE_REFINER_PATH = os.path.expanduser('~/camera_web/stage2a_refine.pt')
+_REPOSITORY_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+_CONCENTRATION_MODEL_CANDIDATES = [
+    os.path.expanduser(os.environ.get('PINES_CONCENTRATION_MODEL', '')),
+    os.path.expanduser('~/camera_web/concentration_classifier.pt'),
+    os.path.join(_REPOSITORY_ROOT, 'models', 'concentration_classifier.pt'),
+]
+CONCENTRATION_MODEL_PATH = next(
+    (path for path in _CONCENTRATION_MODEL_CANDIDATES if path and os.path.isfile(path)),
+    None,
+)
 separate_classifier_model = None
 separate_refine_model = None
 separate_classifier_ch_mean = None
 separate_classifier_ch_std = None
 separate_refine_ch_mean = None
 separate_refine_ch_std = None
+concentration_model = None
+concentration_ch_mean = None
+concentration_ch_std = None
+concentration_class_names = None
 SEPARATE_FEATURE_NAMES = [
     "diff",
     "abs_diff",
@@ -371,6 +385,18 @@ if TORCH_AVAILABLE:
             y = self.dec2(y)
             return self.head(y)
 
+    class ResNet29FourClass(nn.Module):
+        def __init__(self, n_classes=4):
+            super().__init__()
+            self.net = models.resnet18(weights=None)
+            self.net.conv1 = nn.Conv2d(
+                29, 64, kernel_size=7, stride=2, padding=3, bias=False
+            )
+            self.net.fc = nn.Linear(self.net.fc.in_features, n_classes)
+
+        def forward(self, x):
+            return self.net(x)
+
     if os.path.exists(SEPARATE_CLASSIFIER_PATH) and os.path.exists(SEPARATE_REFINER_PATH):
         try:
             cls_ckpt = torch.load(SEPARATE_CLASSIFIER_PATH, map_location='cpu', weights_only=False)
@@ -426,6 +452,41 @@ if TORCH_AVAILABLE:
             logger.info(f"29-channel model loaded: {_model_path}; aux_ch={_aux_ch}; PBS baseline={'available' if has_pbs else 'unavailable (self-normalized)'}")
         except Exception as _e:
             logger.warning(f"Failed to load the 29-channel model: {_e}")
+
+    if CONCENTRATION_MODEL_PATH:
+        try:
+            concentration_ckpt = torch.load(
+                CONCENTRATION_MODEL_PATH, map_location='cpu', weights_only=False
+            )
+            concentration_class_names = [
+                str(name) for name in concentration_ckpt['class_names']
+            ]
+            _concentration_model = ResNet29FourClass(
+                n_classes=len(concentration_class_names)
+            ).eval()
+            _concentration_model.load_state_dict(
+                concentration_ckpt['model_state'], strict=True
+            )
+            concentration_model = _concentration_model
+            concentration_ch_mean = np.asarray(
+                concentration_ckpt['mean'], dtype=np.float32
+            ).reshape(29, 1, 1)
+            concentration_ch_std = np.asarray(
+                concentration_ckpt['std'], dtype=np.float32
+            ).reshape(29, 1, 1)
+            logger.info(
+                "Loaded four-class concentration model: %s; classes=%s",
+                CONCENTRATION_MODEL_PATH,
+                concentration_class_names,
+            )
+        except Exception as _e:
+            concentration_model = None
+            logger.warning(f"Failed to load the four-class concentration model: {_e}")
+    else:
+        logger.info(
+            "Four-class concentration model not found; set PINES_CONCENTRATION_MODEL "
+            "or place concentration_classifier.pt in ~/camera_web"
+        )
 
 def log_execution_time(func):
     """:execution time"""
@@ -2140,6 +2201,59 @@ def extract_feature_bank_29_separate(before_corr, after_corr):
     return np.stack(feats, axis=0).astype(np.float32)
 
 
+def extract_feature_bank_29_concentration(before, after):
+    """Match the feature order and operations used to train concentration_classifier.pt."""
+    before = before.astype(np.float32)
+    after = after.astype(np.float32)
+    diff = after - before
+    abs_diff = np.abs(diff)
+    low_before = gaussian_filter(before, 8)
+    low_after = gaussian_filter(after, 8)
+    high_before = before - low_before
+    high_after = after - low_after
+
+    def local_std(x, win):
+        mean = uniform_filter(x, size=win)
+        mean2 = uniform_filter(x * x, size=win)
+        return np.sqrt(np.maximum(mean2 - mean * mean, 0))
+
+    def local_contrast(x, win):
+        return local_std(x, win) / (uniform_filter(x, size=win) + 1e-3)
+
+    feats = [
+        diff,
+        abs_diff,
+        np.log1p(abs_diff) * np.sign(diff),
+        after / (before + 1e-3) - 1.0,
+        np.clip(diff / (before + 1e-3), -2, 2),
+        gaussian_filter(diff, 1),
+        gaussian_filter(diff, 3),
+        gaussian_filter(diff, 6),
+        local_std(after, 3) - local_std(before, 3),
+        local_std(after, 7) - local_std(before, 7),
+        local_std(after, 15) - local_std(before, 15),
+        local_contrast(after, 5) - local_contrast(before, 5),
+        local_contrast(after, 9) - local_contrast(before, 9),
+        low_after - low_before,
+        high_after - high_before,
+        high_after * high_after - high_before * high_before,
+        gaussian_filter(diff, 1) - gaussian_filter(diff, 2),
+        gaussian_filter(diff, 2) - gaussian_filter(diff, 4),
+        gaussian_filter(diff, 4) - gaussian_filter(diff, 8),
+        before,
+        after,
+        gaussian_filter(before, 2),
+        gaussian_filter(after, 2),
+        local_std(diff, 3),
+        local_std(diff, 7),
+        gaussian_filter(abs_diff, 1) - gaussian_filter(abs_diff, 6),
+        diff * diff,
+        gaussian_filter(abs_diff, 3),
+        np.maximum(diff, 0),
+    ]
+    return np.stack(feats).astype(np.float32)
+
+
 def _normalize01(x):
     mn, mx = x.min(), x.max()
     return (x - mn) / (mx - mn + 1e-8)
@@ -2536,6 +2650,36 @@ def detect():
             with torch.no_grad():
                 heatmap_128 = torch.sigmoid(biosensor_model(xt, aux=auxt, mode='refine')).cpu().numpy()[0, 0]
 
+        concentration_label = None
+        concentration_confidence = None
+        if concentration_model is not None:
+            try:
+                concentration_before = cv2.resize(
+                    before_cropped, (128, 128), interpolation=cv2.INTER_AREA
+                )
+                concentration_after = cv2.resize(
+                    after_cropped, (128, 128), interpolation=cv2.INTER_AREA
+                )
+                concentration_features = extract_feature_bank_29_concentration(
+                    concentration_before, concentration_after
+                )
+                concentration_norm = (
+                    (concentration_features - concentration_ch_mean)
+                    / (concentration_ch_std + 1e-6)
+                ).astype(np.float32)
+                with torch.no_grad():
+                    concentration_probs = torch.softmax(
+                        concentration_model(torch.from_numpy(concentration_norm[None])),
+                        dim=1,
+                    )[0]
+                concentration_index = int(torch.argmax(concentration_probs).item())
+                concentration_label = concentration_class_names[concentration_index]
+                concentration_confidence = round(
+                    float(concentration_probs[concentration_index].item()), 4
+                )
+            except Exception as _e:
+                logger.warning(f"Four-class concentration inference failed: {_e}")
+
         oh, ow = after_roi_display.shape[:2]
         heatmap_disp = cv2.resize(heatmap_128, (ow, oh), interpolation=cv2.INTER_LINEAR)
         hm_lo, hm_hi = np.percentile(heatmap_disp, [5, 99.5])
@@ -2556,9 +2700,8 @@ def detect():
             'label': label,
             'prob_analyte': round(prob_analyte, 4),
             'prob_pbs': round(prob_pbs, 4),
-            # Reserved for an independently validated four-class model.
-            'concentration_label': None,
-            'concentration_confidence': None,
+            'concentration_label': concentration_label,
+            'concentration_confidence': concentration_confidence,
             'cam_image': _to_png_b64(overlay),
             'model_backend': BIOSENSOR_MODE,
         })
