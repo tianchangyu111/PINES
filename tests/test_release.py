@@ -14,6 +14,9 @@ LEGACY = {'biosensor_hybrid_v6_pycharm', 'transfer_learning_only',
           'gas_hybrid_transfer', 'gas_29feat_classifiers',
           'gas_resnet29_stage2a_compare', 'resnet29_full_parity',
           'resnet29_unknown_infer', 'lightgbm_unknown_infer'}
+TEXT_SUFFIXES = {'.css', '.html', '.ini', '.js', '.json', '.md', '.py',
+                 '.toml', '.txt', '.yaml', '.yml'}
+TEXT_FILENAMES = {'.gitattributes', '.gitignore', 'LICENSE'}
 
 
 class ReleaseChecks(unittest.TestCase):
@@ -37,8 +40,9 @@ class ReleaseChecks(unittest.TestCase):
             if not path.is_file() or '__pycache__' in path.parts or path.suffix == '.pyc':
                 continue
             self.assertTrue(str(path.relative_to(ROOT)).isascii(), str(path))
-            if path.suffix != '.pt':
-                self.assertIsNone(cjk.search(path.read_text(encoding='utf-8')), str(path))
+            if path.suffix.lower() in TEXT_SUFFIXES or path.name in TEXT_FILENAMES:
+                text = path.read_text(encoding='utf-8')
+                self.assertIsNone(cjk.search(text), str(path))
 
     def test_deployment_python_syntax(self):
         path = ROOT / 'deployment' / 'raspberry_pi' / 'cam_server.py'
