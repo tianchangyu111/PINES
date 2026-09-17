@@ -1,0 +1,16 @@
+numpy
+scipy
+pandas
+matplotlib
+opencv-python
+torch
+torchvision
+scikit-learn
+scikit-image
+lightgbm
+shap
+joblib
+imageio
+Pillow
+openpyxl
+tqdm

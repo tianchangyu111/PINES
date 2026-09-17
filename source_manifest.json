@@ -1,0 +1,57 @@
+[
+  {
+    "source_filename": "biosensor_hybrid_v6_pycharm.py",
+    "release_filename": "scripts/hybrid_pipeline.py",
+    "source_sha256": "fd4035382bf360a35198105b07d46cefd3f05a62958617523aa2eb9a02829e41"
+  },
+  {
+    "source_filename": "transfer_learning_only.py",
+    "release_filename": "scripts/transfer_learning.py",
+    "source_sha256": "62a294b1d224566ab3b5a380bac8c3934980f175b5fedfe7fcef472d622f1ae9"
+  },
+  {
+    "source_filename": "gas_hybrid_transfer.py",
+    "release_filename": "scripts/gas_transfer.py",
+    "source_sha256": "8f007f53419c3909cf618dd629f1936b30a9115a4fb28fc8bd398b8226a8889d"
+  },
+  {
+    "source_filename": "gas_29feat_classifiers.py",
+    "release_filename": "scripts/feature_classifier_comparison.py",
+    "source_sha256": "59a97e4090111393d291ec103fb6a6aedd18064bbf93454d6bf3693f0bcd042d"
+  },
+  {
+    "source_filename": "gas_resnet29_stage2a_compare.py",
+    "release_filename": "scripts/localization_comparison.py",
+    "source_sha256": "42459f601f5147d62c3d5d064b24608cd547ce110c6f9f0e17c24f2aff72d7c7"
+  },
+  {
+    "source_filename": "resnet29_full_parity.py",
+    "release_filename": "scripts/resnet_pipeline.py",
+    "source_sha256": "256cba19170df80dec9b4365c7d52a4e60f3d8442b57287e07d16867d7880794"
+  },
+  {
+    "source_filename": "resnet29_unknown_infer.py",
+    "release_filename": "scripts/resnet_inference.py",
+    "source_sha256": "93664e47cc6d1427a93c1c6c1ab51ddfeb95ee30d8b3485cf233c29548b50ea1"
+  },
+  {
+    "source_filename": "lightgbm_unknown_infer.py",
+    "release_filename": "scripts/lightgbm_inference.py",
+    "source_sha256": "acd598a06d701f29ebea6372edbce933722043574982fe39d64509ff781112f5"
+  },
+  {
+    "source_filename": "train_resnet29_fourclass.py",
+    "release_filename": "scripts/concentration_classifier.py",
+    "source_sha256": "3e0f2d044f30062dd59e8ed6adfd333c2cb0483f37101ca47835f9383001c47a"
+  },
+  {
+    "source_filename": "cam_server.py",
+    "release_filename": "deployment/raspberry_pi/cam_server.py",
+    "source_sha256": "cff3d6001c8ab73809656be7f36f7f7729315f4688a63fc7e7bd5febf76bd725"
+  },
+  {
+    "source_filename": "index.html",
+    "release_filename": "deployment/raspberry_pi/index.html",
+    "source_sha256": "ad2a26d9caf03debebb46293133a49937592ed870cb8902b5c1586ab91cf7647"
+  }
+]

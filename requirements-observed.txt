@@ -1,0 +1,18 @@
+# Observed during packaging, not a historical-training lockfile.
+# Install torch/torchvision separately for the desired CPU/CUDA platform.
+numpy==2.4.3
+scipy==1.17.1
+pandas==3.0.2
+matplotlib==3.10.8
+opencv-python==4.13.0.92
+torch==2.11.0
+torchvision==0.26.0
+scikit-learn==1.8.0
+scikit-image==0.26.0
+lightgbm==4.6.0
+shap==0.51.0
+joblib==1.5.3
+imageio==2.37.3
+Pillow==12.1.1
+openpyxl==3.1.5
+tqdm==4.67.3

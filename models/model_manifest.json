@@ -1,0 +1,41 @@
+[
+  {
+    "filename": "binary_classifier.pt",
+    "sha256": "294ac444e8764dac921b72d636587e6b6f583c553f31ebe2893e30356bfbc446",
+    "source_sha256": "0c09a9154a78b4f62e69fa5d013775f0c4216d673064bd27c6096876bb94ebde",
+    "size_bytes": 11413995,
+    "checkpoint_keys": [
+      "model_state",
+      "channel_mean",
+      "channel_std"
+    ],
+    "network_weights_changed": false
+  },
+  {
+    "filename": "concentration_classifier.pt",
+    "sha256": "877feba291ca9f1b8359b044fb2447dc89c0f863c2ce2f5cf183d7e72485b1c9",
+    "source_sha256": "46d9690ebe89fa7661018cc551a1b47515703342b5208147f6e07815106f0d55",
+    "size_bytes": 45121803,
+    "checkpoint_keys": [
+      "model_state",
+      "mean",
+      "std",
+      "class_names"
+    ],
+    "network_weights_changed": false
+  },
+  {
+    "filename": "response_localizer.pt",
+    "sha256": "20c4437bc06e20a9df60d40a52a546570265c2bfc5bf9cef553bbf41324ae723",
+    "source_sha256": "778209124f2a8906c022300abf63908d62401f12f81218fac5bb67125a86d37b",
+    "size_bytes": 16834701,
+    "checkpoint_keys": [
+      "model_state",
+      "channel_mean",
+      "channel_std",
+      "pbs_mu29",
+      "pbs_std29"
+    ],
+    "network_weights_changed": false
+  }
+]

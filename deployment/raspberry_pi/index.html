@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SWCNT Optical Sensing Panel</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Microsoft YaHei', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .container { background: rgba(255, 255, 255, 0.95); border-radius: 20px; padding: 30px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); backdrop-filter: blur(10px); max-width: 1120px; width: 100%; }
+    h1 { text-align: center; color: #333; margin-bottom: 30px; font-size: 2rem; background: linear-gradient(45deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .video-section { text-align: center; margin-bottom: 30px; position: relative; }
+    .video-container { position: relative; display: inline-block; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); background: #000; }
+    #video-stream { max-width: 100%; height: auto; display: block; border-radius: 15px; }
+    .loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; color: white; font-size: 1.1rem; border-radius: 15px; }
+    .spinner { width: 30px; height: 30px; border: 3px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .controls { display: flex; gap: 15px; justify-content: center; margin-bottom: 25px; flex-wrap: wrap; }
+    .btn { padding: 12px 24px; border: none; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; text-transform: uppercase; letter-spacing: 0.5px; min-width: 140px; }
+    .btn:before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); transition: left 0.5s; }
+    .btn:hover:before { left: 100%; }
+    .btn-start { background: linear-gradient(45deg, #4CAF50, #45a049); color: white; }
+    .btn-stop { background: linear-gradient(45deg, #f44336, #da190b); color: white; }
+    .btn-capture { background: linear-gradient(45deg, #2196F3, #1976D2); color: white; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status-panel { background: rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 20px; margin-bottom: 20px; backdrop-filter: blur(5px); }
+    .status-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 0.95rem; }
+    .status-label { color: #666; font-weight: 500; }
+    .status-value { font-weight: 600; padding: 4px 12px; border-radius: 15px; color: white; font-size: 0.9rem; }
+    .status-recording { background: linear-gradient(45deg, #ff9800, #f57c00); }
+    .status-stopped { background: linear-gradient(45deg, #9e9e9e, #757575); }
+    .status-online { background: linear-gradient(45deg, #4caf50, #388e3c); }
+    .status-offline { background: linear-gradient(45deg, #f44336, #d32f2f); }
+    .settings-panel { background: rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 20px; margin-bottom: 20px; backdrop-filter: blur(5px); }
+    .settings-title { color: #333; font-weight: 600; margin-bottom: 15px; font-size: 1.1rem; }
+    .setting-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .setting-label { color: #666; font-weight: 500; flex: 1; }
+    .setting-control { flex: 0 0 auto; }
+    select, input[type="range"] { padding: 6px 12px; border: 1px solid #ddd; border-radius: 8px; background: white; font-size: 0.9rem; }
+    input[type="range"] { width: 120px; }
+    .range-value { margin-left: 10px; font-weight: 600; color: #333; min-width: 50px; display: inline-block; }
+    .info-panel { background: rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 20px; backdrop-filter: blur(5px); }
+    .video-list { max-height: 200px; overflow-y: auto; background: rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 10px; margin-top: 10px; }
+    .video-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin-bottom: 5px; background: rgba(255, 255, 255, 0.1); border-radius: 5px; font-size: 0.9rem; }
+    .toast { position: fixed; top: 20px; right: 20px; padding: 12px 18px; border-radius: 8px; color: #fff; box-shadow: 0 6px 16px rgba(0,0,0,0.2); display: none; z-index: 9999; font-weight: 600; }
+    .toast.success { background: linear-gradient(45deg, #4caf50, #2e7d32); }
+    .toast.error { background: linear-gradient(45deg, #f44336, #c62828); }
+    .toast.info { background: linear-gradient(45deg, #2196f3, #1565c0); }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 9998; }
+    .modal { background: #111; border-radius: 12px; max-width: 90vw; max-height: 85vh; width: 900px; padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
+    .modal-close { position: absolute; top: 8px; right: 12px; color: #fff; font-size: 20px; cursor: pointer; background: transparent; border: none; }
+    .modal-content { display: flex; align-items: center; justify-content: center; background: #000; border-radius: 8px; overflow: hidden; min-height: 300px; }
+    .modal-content img, .modal-content video { max-width: 100%; max-height: 80vh; display: block; background: #000; }
+    .biosensor-panel { background: rgba(255,255,255,0.1); border-radius: 10px; padding: 20px; margin-top: 20px; backdrop-filter: blur(5px); }
+    .bio-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .btn-bio { background: linear-gradient(45deg, #7b2ff7, #4a00e0); color: white; padding: 10px 20px; border: none; border-radius: 25px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.3s; min-width: 140px; }
+    .btn-bio:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-bio:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(123,47,247,0.4); }
+    #calibrate-status { font-size: 0.95rem; font-weight: 600; color: #333; }
+    .bio-select { flex: 1; min-width: 0; padding: 7px 10px; border-radius: 8px; border: 1.5px solid #7b2ff7; font-size: 0.88rem; background: #fff; cursor: pointer; }
+    .bio-label { min-width: 52px; font-weight: 600; font-size: 0.88rem; color: #4a00e0; }
+    #canvas-container { margin: 10px 0; width: 100%; }
+    #roi-canvas { border: 2px solid #7b2ff7; border-radius: 8px; cursor: crosshair; max-width: 100%; display: block; margin: 0 auto; touch-action: none; }
+    #roi-coords { font-size: 0.85rem; color: #666; margin-top: 6px; font-family: monospace; text-align: center; }
+    #detect-results { margin-top: 18px; text-align: center; }
+    .results-card { max-width: 820px; margin: 0 auto; padding: 18px 20px 20px; border-radius: 16px; background: rgba(255,255,255,0.92); border: 2px solid rgba(74,0,224,0.16); box-shadow: 0 10px 26px rgba(42, 19, 98, 0.12); }
+    .results-title { font-size: 1rem; font-weight: 800; color: #4a00e0; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+    #result-label { font-size: 2.35rem; font-weight: 800; margin-bottom: 10px; letter-spacing: 0.02em; }
+    #result-meta { font-size: 1.08rem; font-weight: 600; color: #444; margin-bottom: 14px; line-height: 1.65; }
+    #heatmap-title { font-size: 1rem; font-weight: 700; color: #333; margin-bottom: 10px; letter-spacing: 0.04em; }
+    .result-negative { color: #1565c0; }
+    .result-positive { color: #c62828; }
+    #cam-image { max-width: min(100%, 760px); border-radius: 8px; border: 2px solid #ddd; image-rendering: pixelated; cursor: zoom-in; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>SWCNT Optical Sensing Panel</h1>
+
+    <div class="video-section">
+      <div class="video-container">
+        <img id="video-stream" alt="Camera Preview" style="display: none;" />
+        <div class="loading-overlay" id="loading-overlay">
+          <div class="spinner"></div>
+          <span>Loading camera stream...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-start" id="start-btn">🔴 Start Recording</button>
+      <button class="btn btn-stop" id="stop-btn" disabled>⏹️ Stop Recording</button>
+      <button class="btn btn-capture" id="capture-btn">📸 Capture Photo</button>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <div id="media-overlay" class="modal-overlay">
+      <div class="modal" role="dialog" aria-modal="true">
+        <button id="media-close" class="modal-close" aria-label="Close">✖</button>
+        <div id="media-content" class="modal-content"></div>
+      </div>
+    </div>
+
+    <div class="status-panel">
+      <div class="status-row"><span class="setting-label">Recording:</span><span class="status-value status-stopped" id="recording-status">Stopped</span></div>
+      <div class="status-row"><span class="setting-label">Camera:</span><span class="status-value status-online" id="camera-status">Online</span></div>
+      <div class="status-row"><span class="setting-label">Duration:</span><span class="status-value status-stopped" id="recording-time">00:00:00</span></div>
+      <div class="status-row"><span class="setting-label">Storage:</span><span class="status-value status-online" id="storage-info">Checking...</span></div>
+    </div>
+
+    <div class="settings-panel">
+      <div class="settings-title">📋 Recording Settings</div>
+      <div class="setting-group">
+        <span class="setting-label">Video Quality:</span>
+        <div class="setting-control">
+          <select id="quality-select">
+            <option value="720p">720p (Recommended)</option>
+            <option value="1080p" selected>1080p (HD)</option>
+            <option value="480p">480p (Save space)</option>
+          </select>
+        </div>
+      </div>
+      <div class="setting-group">
+        <span class="setting-label">Frame Rate:</span>
+        <div class="setting-control">
+          <input type="range" id="framerate-slider" min="15" max="60" value="30" step="5">
+          <span class="range-value" id="framerate-value">30</span> fps
+        </div>
+      </div>
+      <div class="setting-group">
+        <span class="setting-label">Bitrate:</span>
+        <div class="setting-control">
+          <input type="range" id="bitrate-slider" min="5" max="25" value="10" step="1">
+          <span class="range-value" id="bitrate-value">10</span> Mbps
+        </div>
+      </div>
+      <div class="setting-group">
+        <span class="setting-label">Exposure Time:</span>
+        <div class="setting-control">
+          <input type="range" id="exposure-slider" min="0.001" max="60" value="0.05" step="0.1">
+          <span class="range-value" id="exposure-value">0.05</span> s
+        </div>
+      </div>
+      <div class="setting-group">
+        <span class="setting-label">Camera Gain:</span>
+        <div class="setting-control">
+          <input type="range" id="gain-slider" min="1" max="16" value="1" step="0.1">
+          <span class="range-value" id="gain-value">1.0</span>x
+        </div>
+      </div>
+    </div>
+
+    <div class="info-panel">
+      <div>Videos: /home/cholab/camera_web/videos/</div>
+      <div>Photos: /home/cholab/camera_web/photos/</div>
+      <div class="video-list" id="video-list" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- Timelapse Recorder -->
+    <div class="settings-panel" style="margin-top:20px;">
+      <div class="settings-title">🎞️ Timelapse Recorder</div>
+      <div style="font-size:0.85rem;color:#666;margin-bottom:12px;">
+        Captures still photos continuously using the exposure/gain settings above, then assembles them into an MP4.
+      </div>
+      <div class="setting-group">
+        <span class="setting-label">Output FPS (assembled video):</span>
+        <div class="setting-control">
+          <input type="range" id="timelapse-fps-slider" min="1" max="30" value="10" step="1">
+          <span class="range-value" id="timelapse-fps-value">10</span> fps
+        </div>
+      </div>
+      <div class="controls" style="margin-bottom:10px;">
+        <button class="btn btn-start" id="timelapse-start-btn">🎞️ Start Timelapse</button>
+        <button class="btn btn-stop" id="timelapse-stop-btn" disabled>⏹️ Stop &amp; Save</button>
+      </div>
+      <div id="timelapse-status-row" style="text-align:center;font-size:0.95rem;color:#444;min-height:24px;"></div>
+    </div>
+
+    <!-- Fluorescence Biosensor Detection -->
+    <div class="biosensor-panel">
+      <div class="settings-title">Deep Learning Detection</div>
+
+      <div class="bio-row">
+        <span class="bio-label">LED Ref</span>
+        <select class="bio-select" id="led-select"><option value="">— select photo —</option></select>
+      </div>
+      <div class="bio-row">
+        <span class="bio-label">Before</span>
+        <select class="bio-select" id="before-select"><option value="">— select photo —</option></select>
+      </div>
+      <div class="bio-row">
+        <span class="bio-label">After</span>
+        <select class="bio-select" id="after-select"><option value="">— select photo —</option></select>
+      </div>
+
+      <div class="bio-row">
+        <button class="btn-bio" id="refresh-photos-btn">↻ Refresh</button>
+        <span id="calibrate-status"></span>
+      </div>
+
+      <div id="canvas-container" style="display:none;">
+        <canvas id="roi-canvas"></canvas>
+        <div id="roi-coords">Drag on image to set or move ROI</div>
+      </div>
+
+      <div class="bio-row" style="margin-top:12px;">
+        <button class="btn-bio" id="calibrate-btn" disabled>💡 Calibrate LED</button>
+        <button class="btn-bio" id="detect-btn" disabled>🔍 Detect</button>
+      </div>
+
+      <div id="detect-results" style="display:none;">
+        <div class="results-card">
+          <div class="results-title">Results</div>
+          <div id="result-label"></div>
+          <div id="result-meta"></div>
+          <div id="heatmap-title">Response</div>
+          <img id="cam-image" alt="Detection result" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const captureBtn = document.getElementById('capture-btn');
+    const videoStream = document.getElementById('video-stream');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const recordingStatus = document.getElementById('recording-status');
+    const cameraStatus = document.getElementById('camera-status');
+    const recordingTime = document.getElementById('recording-time');
+    const storageInfo = document.getElementById('storage-info');
+    const videoList = document.getElementById('video-list');
+    const toastEl = document.getElementById('toast');
+    const mediaOverlay = document.getElementById('media-overlay');
+    const mediaContent = document.getElementById('media-content');
+    const mediaClose = document.getElementById('media-close');
+
+    const qualitySelect = document.getElementById('quality-select');
+    const framerateSlider = document.getElementById('framerate-slider');
+    const framerateValue = document.getElementById('framerate-value');
+    const bitrateSlider = document.getElementById('bitrate-slider');
+    const bitrateValue = document.getElementById('bitrate-value');
+    const exposureSlider = document.getElementById('exposure-slider');
+    const exposureValue = document.getElementById('exposure-value');
+    const gainSlider = document.getElementById('gain-slider');
+    const gainValue = document.getElementById('gain-value');
+
+  // Helper to force-refresh the MJPEG stream
+  function refreshStream(afterMs = 0) {
+    const doRefresh = () => { videoStream.src = `/video_feed?ts=${Date.now()}`; };
+    if (afterMs > 0) { setTimeout(doRefresh, afterMs); } else { doRefresh(); }
+  }
+
+    let isRecording = false;
+    let recordingStartTime = null;
+    let recordingTimer = null;
+    let isBusyOperation = false;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeVideoStream();
+      initializeSettings();
+      checkStatus();
+      loadVideoList();
+      setInterval(checkStatus, 3000);
+      setInterval(loadVideoList, 5000);
+      setInterval(pollTimelapse, 2000);
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMedia(); });
+      mediaOverlay.addEventListener('click', (e) => { if (e.target === mediaOverlay) hideMedia(); });
+      mediaClose.addEventListener('click', hideMedia);
+        
+  videoStream.addEventListener('click', async (e) => {
+    try {
+      const rect = videoStream.getBoundingClientRect();
+      const cx = (e.clientX - rect.left) / rect.width;   // 0~1
+      const cy = (e.clientY - rect.top) / rect.height;   // 0~1
+      const box = [0.22, 0.22]; 
+
+      showToast('Focusing...', 'info');
+      const res = await fetch('/focus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ x: cx, y: cy, box })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.status === 'success') {
+        showToast('Focus locked at tap point', 'success');
+        
+        refreshStream(800);
+      } else {
+        showToast((data && (data.message || data.error)) || 'Focus failed', 'error');
+      }
+    } catch (err) {
+      showToast('Focus request error', 'error');
+    }
+  });
+
+    });
+
+    function showToast(message, type = 'info', durationMs = 2200) {
+      toastEl.textContent = message;
+      toastEl.className = `toast ${type}`;
+      toastEl.style.display = 'block';
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => { toastEl.style.display = 'none'; }, durationMs);
+    }
+
+    function showMedia(type, name) {
+      mediaContent.innerHTML = '';
+      const mediaPath = name.split('/').map(encodeURIComponent).join('/');
+      if (type === 'video') {
+        const v = document.createElement('video');
+        v.controls = true;
+        v.autoplay = false; 
+        v.playsInline = true;
+        v.setAttribute('playsinline','');
+        v.setAttribute('webkit-playsinline','');
+        v.src = `/videos/${mediaPath}`;
+        v.style.maxWidth = '100%';
+        v.style.maxHeight = '80vh';
+        mediaContent.appendChild(v);
+      } else if (type === 'photo') {
+        const img = document.createElement('img');
+        img.src = `/photos/${mediaPath}`;
+        img.alt = name;
+        mediaContent.appendChild(img);
+      }
+      mediaOverlay.style.display = 'flex';
+    }
+
+    function hideMedia() {
+      mediaOverlay.style.display = 'none';
+      mediaContent.innerHTML = '';
+    }
+
+    function showImageSource(src, alt = 'Image preview') {
+      mediaContent.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = alt;
+      mediaContent.appendChild(img);
+      mediaOverlay.style.display = 'flex';
+    }
+
+    async function initializeVideoStream() {
+      let retryDelayMs = 1500;
+      const maxDelayMs = 10000;
+      let hasEverConnected = false;
+      let reconnectScheduled = false;
+      let stalledTimer = null;
+      const setVideoSrc = () => { videoStream.src = `/video_feed?ts=${Date.now()}`; };
+      const armStallWatchdog = () => {
+        clearTimeout(stalledTimer);
+        
+        stalledTimer = setTimeout(() => {
+          updateCameraStatus('Offline', false);
+          setVideoSrc();
+        }, 10000);
+      };
+      const scheduleReconnect = () => {
+        if (reconnectScheduled) return;
+        reconnectScheduled = true;
+        setTimeout(() => {
+          reconnectScheduled = false;
+          setVideoSrc();
+          armStallWatchdog();
+        }, retryDelayMs);
+        retryDelayMs = Math.min(maxDelayMs, Math.floor(retryDelayMs * 1.7));
+      };
+      const onConnected = () => {
+        loadingOverlay.style.display = 'none';
+        videoStream.style.display = 'block';
+        updateCameraStatus('Online', true);
+        retryDelayMs = 1500;
+        hasEverConnected = true;
+        clearTimeout(stalledTimer);
+      };
+      const onError = () => {
+        updateCameraStatus('Offline', false);
+        if (!hasEverConnected) {
+          // Only show loading text before first successful connect
+          loadingOverlay.innerHTML = '<span style="color: #ff6b6b;">❌ Camera connection failed, retrying...</span>';
+        }
+        // Do not toggle visibility to avoid flicker; just attempt a reconnect
+        scheduleReconnect();
+      };
+
+      videoStream.onload = onConnected;
+      videoStream.onerror = onError;
+      setVideoSrc();
+      armStallWatchdog();
+      // No periodic refresh; reconnects are error-driven only
+    }
+
+    async function applyPreviewNow() {
+      const q = qualitySelect.value;
+      const fps = parseInt(framerateSlider.value);
+      const map = { '480p':[854,480], '720p':[1280,720], '1080p':[1920,1080] };
+      const sel = map[q] || [640,480];
+      try {
+        await fetch('/set_preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            width: sel[0], height: sel[1], fps
+          })
+        });
+      // server restarts preview with new params; reattach once
+        refreshStream(600);
+      } catch {}
+    }
+
+    function initializeSettings() {
+      framerateSlider.oninput = function() { framerateValue.textContent = this.value; };
+      bitrateSlider.oninput = function() { bitrateValue.textContent = this.value; };
+      exposureSlider.oninput = function() { exposureValue.textContent = this.value; };
+      gainSlider.oninput = function() { gainValue.textContent = parseFloat(this.value).toFixed(1); };
+      
+      let previewTimer = null;
+      const applyPreview = async () => { await applyPreviewNow(); };
+      const debounceApply = () => { clearTimeout(previewTimer); previewTimer = setTimeout(applyPreview, 300); };
+      qualitySelect.onchange = debounceApply;
+      framerateSlider.onchange = debounceApply;
+      
+      setTimeout(applyPreview, 200);
+    }
+
+    function updateRecordingStatus(status, isRec) {
+      recordingStatus.textContent = status;
+      recordingStatus.className = `status-value ${isRec ? 'status-recording' : 'status-stopped'}`;
+      isRecording = isRec;
+      startBtn.disabled = isRec;
+      stopBtn.disabled = !isRec;
+      if (isRec) { recordingStartTime = Date.now(); startRecordingTimer(); } else { stopRecordingTimer(); recordingTime.textContent = '00:00:00'; recordingTime.className = 'status-value status-stopped'; }
+    }
+    function updateCameraStatus(status, online) { cameraStatus.textContent = status; cameraStatus.className = `status-value ${online ? 'status-online' : 'status-offline'}`; }
+    function startRecordingTimer() { recordingTime.className = 'status-value status-recording'; recordingTimer = setInterval(() => { if (recordingStartTime) { const e = Date.now() - recordingStartTime; const h = Math.floor(e/3600000); const m = Math.floor((e%3600000)/60000); const s = Math.floor((e%60000)/1000); recordingTime.textContent = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;} }, 1000); }
+    function stopRecordingTimer() { if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; } recordingStartTime = null; }
+
+    startBtn.onclick = async function() {
+      try {
+        startBtn.disabled = true;
+        const response = await fetch('/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quality: qualitySelect.value, framerate: parseInt(framerateSlider.value), bitrate: parseInt(bitrateSlider.value), exposure: parseFloat(exposureSlider.value), gain: parseFloat(gainSlider.value) }) });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.status === 'success') {
+          updateRecordingStatus('Recording...', true);
+          showToast(data.message || 'Recording started', 'success');
+        } else {
+          startBtn.disabled = false;
+          showToast((data && (data.message || data.error)) || 'Failed to start recording', 'error');
+        }
+      } catch (e) {
+        startBtn.disabled = false;
+        showToast('Failed to send start request', 'error');
+      }
+    };
+
+    stopBtn.onclick = async function() {
+      try {
+        stopBtn.disabled = true;
+        const response = await fetch('/stop', { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.status === 'success') {
+          updateRecordingStatus('Stopped', false);
+          showToast(data.message || 'Recording stopped', 'success');
+          setTimeout(loadVideoList, 1000);
+          // backend restarts preview after stop; refresh stream once to reattach
+          refreshStream(1200);
+        } else {
+          stopBtn.disabled = false;
+          showToast((data && (data.message || data.error)) || 'Failed to stop recording', 'error');
+        }
+      } catch (e) {
+        stopBtn.disabled = false;
+        showToast('Failed to send stop request', 'error');
+      }
+    };
+
+    captureBtn.onclick = async function() {
+      try {
+        captureBtn.disabled = true;
+        isBusyOperation = true;
+        const exposureTime = parseFloat(exposureSlider.value);
+        const gainVal = parseFloat(gainSlider.value);
+        const response = await fetch('/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quality: qualitySelect.value, exposure: exposureTime, gain: gainVal }) });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.status === 'success') {
+          showToast(data.message || 'Photo captured', 'success');
+          setTimeout(() => {
+            loadVideoList();
+            if (window.refreshBioPhotoList) {
+              window.refreshBioPhotoList();
+            }
+          }, 1200);
+          setTimeout(() => {
+            isBusyOperation = false;
+          }, 1500);
+          if (window.refreshBioPhotoList) {
+            setTimeout(() => window.refreshBioPhotoList(), 1800);
+          }
+          // backend restarts preview after capture; refresh once to reattach
+          refreshStream(1500);
+        } else {
+          isBusyOperation = false;
+          showToast((data && (data.message || data.error)) || 'Failed to capture photo', 'error');
+        }
+        captureBtn.disabled = false;
+      } catch (e) {
+        isBusyOperation = false;
+        captureBtn.disabled = false;
+        showToast('Failed to send capture request', 'error');
+      }
+    };
+
+    async function checkStatus() {
+      if (isBusyOperation) return;
+      try {
+        const response = await fetch('/status');
+        const data = await response.json();
+        if (data.recording !== isRecording) { updateRecordingStatus(data.recording ? 'Recording...' : 'Stopped', data.recording); }
+        updateCameraStatus(data.camera_online ? 'Online' : 'Offline', data.camera_online);
+        // Do not force-reset stream from status poll; rely on error-driven reconnects
+        if (data.storage) { const used = (data.storage.used/1073741824).toFixed(1); const total = (data.storage.total/1073741824).toFixed(1); const percent = ((data.storage.used/data.storage.total)*100).toFixed(1); storageInfo.textContent = `${used}GB / ${total}GB (${percent}%)`; storageInfo.className = `status-value ${percent > 90 ? 'status-offline' : 'status-online'}`; }
+      } catch {}
+    }
+
+    async function loadVideoList() {
+      if (isBusyOperation) return;
+      try {
+        const response = await fetch('/files');
+        const data = await response.json();
+        videoList.innerHTML = '';
+        if (data.videos && data.videos.length > 0) {
+          data.videos.forEach(v => { const d = document.createElement('div'); d.className = 'video-item'; const sz = v.size >= 1048576 ? `${(v.size/1048576).toFixed(1)} MB` : `${(v.size/1024).toFixed(0)} KB`; d.innerHTML = `<span>🎥 ${v.name}</span><span>${sz}</span>`; d.style.cursor='pointer'; d.onclick=()=>showMedia('video', v.name); videoList.appendChild(d); });
+        }
+        if (data.photos && data.photos.length > 0) {
+          data.photos.forEach(p => { const d = document.createElement('div'); d.className = 'video-item'; d.innerHTML = `<span>📸 ${p.name}</span><span>${(p.size/1024).toFixed(1)} KB</span>`; d.style.cursor='pointer'; d.onclick=()=>showMedia('photo', p.name); videoList.appendChild(d); });
+        }
+        if ((!data.videos || data.videos.length===0) && (!data.photos || data.photos.length===0)) { videoList.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">No media found</div>'; }
+      } catch { videoList.innerHTML = '<div style="text-align:center;color:#ff6b6b;padding:20px;">Failed to load media list</div>'; }
+    }
+
+  
+
+  (function() {
+    let roi = null;
+    let roiByRole = { led: null, before: null, after: null };
+    let fixedRoiSize = null;
+    let currentPhotoRole = null;
+    let isDragging = false;
+    let dragStart = null;
+    let canvasSrc  = null;
+    let canvasNatW = 0, canvasNatH = 0;
+    let canvasImg = null;
+    let viewScale = 1;
+    let viewRotation = 0;
+    let viewOffsetX = 0;
+    let viewOffsetY = 0;
+    let activePointers = new Map();
+    let pointerMode = null;
+    let panStart = null;
+    let pinchStart = null;
+    let pointerMoved = false;
+
+    const ledSelect       = document.getElementById('led-select');
+    const beforeSelect    = document.getElementById('before-select');
+    const afterSelect     = document.getElementById('after-select');
+    const refreshBtn      = document.getElementById('refresh-photos-btn');
+    const calibrateBtn    = document.getElementById('calibrate-btn');
+    const calibrateStatus = document.getElementById('calibrate-status');
+    const detectBtn       = document.getElementById('detect-btn');
+    const canvasContainer = document.getElementById('canvas-container');
+    const roiCanvas       = document.getElementById('roi-canvas');
+    const roiCoords       = document.getElementById('roi-coords');
+    const detectResults   = document.getElementById('detect-results');
+    const resultLabel     = document.getElementById('result-label');
+    const resultMeta      = document.getElementById('result-meta');
+    const camImage        = document.getElementById('cam-image');
+    camImage.addEventListener('click', () => {
+      if (camImage.src) showImageSource(camImage.src, 'AI-enhanced response map');
+    });
+
+    function _updateButtons() {
+      calibrateBtn.disabled = !ledSelect.value;
+      detectBtn.disabled    = !(beforeSelect.value && afterSelect.value);
+    }
+
+    function _showPhoto(name, role) {
+      if (!name) return;
+      const url = '/photos/' + encodeURIComponent(name);
+      const img = new Image();
+      img.onload = () => {
+        currentPhotoRole = role;
+        canvasSrc  = url;
+        canvasImg  = img;
+        canvasNatW = img.naturalWidth;
+        canvasNatH = img.naturalHeight;
+        roi = roiByRole[role] || null;
+        if (fixedRoiSize) {
+          roi = _roiWithFixedSize(roi);
+          roiByRole[role] = roi;
+        }
+        _resetView();
+        _drawCanvas();
+        canvasContainer.style.display = 'block';
+      };
+      img.onerror = () => showToast('Cannot load: ' + name, 'error');
+      img.src = url;
+    }
+
+    async function _loadPhotoList() {
+      try {
+        const res  = await fetch('/files');
+        const data = await res.json();
+        const photos = data.photos || [];
+        [ledSelect, beforeSelect, afterSelect].forEach(sel => {
+          const prev = sel.value;
+          sel.innerHTML = '<option value="">— select photo —</option>';
+          photos.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value       = p.name;
+            opt.textContent = p.name;
+            sel.appendChild(opt);
+          });
+          if (photos.some(p => p.name === prev)) sel.value = prev;
+        });
+        _updateButtons();
+      } catch (e) {
+        showToast('Failed to load photo list', 'error');
+      }
+    }
+
+    // Show selected photo on canvas
+    ledSelect.onchange    = () => { _showPhoto(ledSelect.value, 'led');       _updateButtons(); };
+    beforeSelect.onchange = () => { _showPhoto(beforeSelect.value, 'before'); _updateButtons(); };
+    afterSelect.onchange  = () => { _showPhoto(afterSelect.value, 'after');   _updateButtons(); };
+
+    refreshBtn.onclick = _loadPhotoList;
+    window.refreshBioPhotoList = _loadPhotoList;
+
+    // ── Calibrate LED ──────────────────────────────────────────────────
+    calibrateBtn.onclick = async () => {
+      if (!ledSelect.value) return;
+      calibrateBtn.disabled = true;
+      calibrateStatus.textContent = 'Calibrating…';
+      try {
+        const body = {
+          photo_filename: ledSelect.value,
+          roi: roiByRole.led || roi || { x: 0, y: 0, w: canvasNatW || 640, h: canvasNatH || 480 }
+        };
+        const res  = await fetch('/calibrate_led', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.status === 'success') {
+          calibrateStatus.textContent = '✅ Done';
+          showToast(data.message || 'LED calibration complete', 'success');
+        } else {
+          calibrateStatus.textContent = '❌ Failed';
+          showToast(data.message || 'Calibration failed', 'error');
+        }
+      } catch (e) {
+        calibrateStatus.textContent = '❌ Error';
+        showToast('Network error', 'error');
+      }
+      calibrateBtn.disabled = !ledSelect.value;
+    };
+
+    // ── Detect ─────────────────────────────────────────────────────────
+    detectBtn.onclick = async () => {
+      if (!beforeSelect.value || !afterSelect.value) return;
+      detectBtn.disabled = true;
+      isBusyOperation = true;
+      showToast('Running detection…', 'info', 30000);
+      try {
+        const body = {
+          before_filename: beforeSelect.value,
+          after_filename:  afterSelect.value,
+          before_roi: roiByRole.before || roi || { x: 0, y: 0, w: canvasNatW || 640, h: canvasNatH || 480 },
+          after_roi:  roiByRole.after  || roiByRole.before || roi || { x: 0, y: 0, w: canvasNatW || 640, h: canvasNatH || 480 }
+        };
+        const res  = await fetch('/detect', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.status === 'success') {
+          const concentration = String(data.concentration_label || data.class_label || '').trim();
+          const normalizedClass = concentration.toLowerCase().replace(/\s+/g, '');
+          const concentrationClasses = new Set(['1um', '10um', '100um', '1μm', '10μm', '100μm']);
+          const hasFourClassResult = normalizedClass === 'pbs' || concentrationClasses.has(normalizedClass);
+          const isPositive = hasFourClassResult
+            ? concentrationClasses.has(normalizedClass)
+            : String(data.label || '').toLowerCase() === 'analyte';
+          const hasConcentrationConfidence = data.concentration_confidence !== null
+            && data.concentration_confidence !== undefined
+            && Number.isFinite(Number(data.concentration_confidence));
+          const confidenceValue = hasFourClassResult && hasConcentrationConfidence
+            ? Number(data.concentration_confidence)
+            : Math.max(Number(data.prob_analyte) || 0, Number(data.prob_pbs) || 0);
+          const confidence = (confidenceValue * 100).toFixed(1);
+          resultLabel.textContent = isPositive ? 'Positive' : 'Negative';
+          resultLabel.className = isPositive ? 'result-positive' : 'result-negative';
+          const meta = [`Confidence: ${confidence}%`];
+          if (concentrationClasses.has(normalizedClass)) {
+            const displayConcentration = concentration.replace(/uM/gi, ' μM');
+            meta.push(`Concentration: ${displayConcentration}`);
+          }
+          resultMeta.textContent = meta.join(' | ');
+          camImage.src = 'data:image/png;base64,' + data.cam_image;
+          detectResults.style.display = 'block';
+          showToast('Detection complete', 'success');
+        } else {
+          showToast(data.message || 'Detection failed', 'error');
+        }
+      } catch (e) {
+        showToast('Request failed', 'error');
+      }
+      isBusyOperation = false;
+      detectBtn.disabled = false;
+    };
+
+    // ── Canvas ROI ─────────────────────────────────────────────────────
+    function _resetView() {
+      viewScale = 1;
+      viewRotation = 0;
+      viewOffsetX = 0;
+      viewOffsetY = 0;
+      activePointers.clear();
+      pointerMode = null;
+    }
+
+    function _fitCanvasToContainer() {
+      if (!canvasNatW || !canvasNatH) return;
+      const maxW = Math.min(canvasNatW, roiCanvas.parentElement.clientWidth || 980);
+      const fitScale = maxW / canvasNatW;
+      roiCanvas.width  = Math.round(canvasNatW * fitScale);
+      roiCanvas.height = Math.round(canvasNatH * fitScale);
+    }
+
+    function _clampView() {
+      if (!roiCanvas.width || !roiCanvas.height) return;
+      const minX = Math.min(0, roiCanvas.width - roiCanvas.width * viewScale);
+      const minY = Math.min(0, roiCanvas.height - roiCanvas.height * viewScale);
+      viewOffsetX = Math.max(minX, Math.min(0, viewOffsetX));
+      viewOffsetY = Math.max(minY, Math.min(0, viewOffsetY));
+      if (viewScale <= 1.001) {
+        viewScale = 1;
+        viewOffsetX = 0;
+        viewOffsetY = 0;
+      }
+    }
+
+    function _drawCanvas() {
+      if (!canvasImg) return;
+      const prevW = roiCanvas.width;
+      _fitCanvasToContainer();
+      if (prevW && prevW !== roiCanvas.width) _clampView();
+      const ctx = roiCanvas.getContext('2d');
+      const cx = roiCanvas.width / 2;
+      const cy = roiCanvas.height / 2;
+      ctx.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+      ctx.save();
+      ctx.translate(cx + viewOffsetX, cy + viewOffsetY);
+      ctx.rotate(viewRotation);
+      ctx.scale(viewScale, viewScale);
+      ctx.drawImage(canvasImg, -roiCanvas.width / 2, -roiCanvas.height / 2, roiCanvas.width, roiCanvas.height);
+      if (roi) {
+        const sx = roiCanvas.width  / canvasNatW;
+        const sy = roiCanvas.height / canvasNatH;
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = Math.max(0.5, 1 / viewScale);
+        ctx.strokeRect(roi.x * sx - roiCanvas.width / 2, roi.y * sy - roiCanvas.height / 2, roi.w * sx, roi.h * sy);
+      }
+      ctx.restore();
+      roiCoords.textContent = roi
+        ? `ROI: x=${roi.x}  y=${roi.y}  w=${roi.w}  h=${roi.h}  zoom=${viewScale.toFixed(1)}x  rotate=${Math.round(viewRotation * 180 / Math.PI)}deg`
+        : `Drag on image to set ROI  zoom=${viewScale.toFixed(1)}x  rotate=${Math.round(viewRotation * 180 / Math.PI)}deg`;
+    }
+
+    function _eventPoint(e) {
+      const rect = roiCanvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    function _canvasXYFromPoint(pt) {
+      const centerX = roiCanvas.width / 2 + viewOffsetX;
+      const centerY = roiCanvas.height / 2 + viewOffsetY;
+      const dx = pt.x - centerX;
+      const dy = pt.y - centerY;
+      const cos = Math.cos(-viewRotation);
+      const sin = Math.sin(-viewRotation);
+      const ux = (dx * cos - dy * sin) / viewScale + roiCanvas.width / 2;
+      const uy = (dx * sin + dy * cos) / viewScale + roiCanvas.height / 2;
+      return {
+        x: Math.max(0, Math.min(canvasNatW, Math.round(ux * canvasNatW / roiCanvas.width))),
+        y: Math.max(0, Math.min(canvasNatH, Math.round(uy * canvasNatH / roiCanvas.height)))
+      };
+    }
+
+    function _zoomAt(screenX, screenY, nextScale) {
+      nextScale = Math.max(1, Math.min(8, nextScale));
+      viewScale = nextScale;
+      _clampView();
+      _drawCanvas();
+    }
+
+    function _saveCurrentRoi() {
+      if (!currentPhotoRole || !roi) return;
+      roiByRole[currentPhotoRole] = roi;
+      if (roi.w > 0 && roi.h > 0) {
+        fixedRoiSize = { w: roi.w, h: roi.h };
+        _syncStoredRoiSizes();
+      }
+    }
+
+    function _defaultRoiSize() {
+      return {
+        w: Math.round(canvasNatW * 0.25),
+        h: Math.round(canvasNatH * 0.25)
+      };
+    }
+
+    function _roiWithFixedSize(baseRoi) {
+      const size = fixedRoiSize || (baseRoi ? { w: baseRoi.w, h: baseRoi.h } : _defaultRoiSize());
+      const w = Math.max(4, Math.min(canvasNatW, size.w));
+      const h = Math.max(4, Math.min(canvasNatH, size.h));
+      const cx = baseRoi ? baseRoi.x + baseRoi.w / 2 : canvasNatW / 2;
+      const cy = baseRoi ? baseRoi.y + baseRoi.h / 2 : canvasNatH / 2;
+      return {
+        x: Math.max(0, Math.min(canvasNatW - w, Math.round(cx - w / 2))),
+        y: Math.max(0, Math.min(canvasNatH - h, Math.round(cy - h / 2))),
+        w, h
+      };
+    }
+
+    function _syncStoredRoiSizes() {
+      ['led', 'before', 'after'].forEach(role => {
+        if (roiByRole[role]) roiByRole[role] = _roiWithFixedSize(roiByRole[role]);
+      });
+    }
+
+    function _fixedRoiAtPoint(pt) {
+      const p = _canvasXYFromPoint(pt);
+      const size = fixedRoiSize || (roi ? { w: roi.w, h: roi.h } : _defaultRoiSize());
+      const w = Math.max(4, Math.min(canvasNatW, size.w));
+      const h = Math.max(4, Math.min(canvasNatH, size.h));
+      return {
+        x: Math.max(0, Math.min(canvasNatW - w, Math.round(p.x - w / 2))),
+        y: Math.max(0, Math.min(canvasNatH - h, Math.round(p.y - h / 2))),
+        w, h
+      };
+    }
+
+    function _beginRoiSelection(pt) {
+      pointerMode = 'select';
+      isDragging = true;
+      dragStart = _canvasXYFromPoint(pt);
+      roi = _fixedRoiAtPoint(pt);
+      _drawCanvas();
+    }
+
+    roiCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const pt = _eventPoint(e);
+      const factor = e.deltaY < 0 ? 1.16 : 0.86;
+      _zoomAt(pt.x, pt.y, viewScale * factor);
+    }, { passive: false });
+
+    roiCanvas.addEventListener('pointerdown', e => {
+      if (!canvasImg) return;
+      roiCanvas.setPointerCapture(e.pointerId);
+      const pt = _eventPoint(e);
+      activePointers.set(e.pointerId, pt);
+      pointerMoved = false;
+
+      if (activePointers.size === 2) {
+        const pts = Array.from(activePointers.values());
+        const dx = pts[0].x - pts[1].x;
+        const dy = pts[0].y - pts[1].y;
+        pinchStart = {
+          distance: Math.hypot(dx, dy),
+          angle: Math.atan2(dy, dx),
+          scale: viewScale,
+          rotation: viewRotation,
+          center: { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }
+        };
+        pointerMode = 'pinch';
+        return;
+      }
+
+      _beginRoiSelection(pt);
+    });
+
+    roiCanvas.addEventListener('pointermove', e => {
+      if (!activePointers.has(e.pointerId)) return;
+      const pt = _eventPoint(e);
+      activePointers.set(e.pointerId, pt);
+
+      if (pointerMode === 'pinch' && activePointers.size >= 2 && pinchStart) {
+        pointerMoved = true;
+        const pts = Array.from(activePointers.values());
+        const dx = pts[0].x - pts[1].x;
+        const dy = pts[0].y - pts[1].y;
+        const dist = Math.max(1, Math.hypot(dx, dy));
+        const angle = Math.atan2(dy, dx);
+        viewRotation = pinchStart.rotation + angle - pinchStart.angle;
+        _zoomAt(pinchStart.center.x, pinchStart.center.y, pinchStart.scale * dist / pinchStart.distance);
+        return;
+      }
+
+      if (pointerMode === 'select' && isDragging) {
+        pointerMoved = true;
+        const cur = _canvasXYFromPoint(pt);
+        const next = {
+          x: Math.min(dragStart.x, cur.x),
+          y: Math.min(dragStart.y, cur.y),
+          w: Math.abs(cur.x - dragStart.x),
+          h: Math.abs(cur.y - dragStart.y)
+        };
+        if (next.w >= 8 && next.h >= 8) roi = next;
+        _drawCanvas();
+        return;
+      }
+
+      if (pointerMode === 'pan' && panStart) {
+        const dx = pt.x - panStart.x;
+        const dy = pt.y - panStart.y;
+        if (Math.hypot(dx, dy) > 8) pointerMoved = true;
+        viewOffsetX = panStart.ox + dx;
+        viewOffsetY = panStart.oy + dy;
+        _clampView();
+        _drawCanvas();
+      }
+    });
+
+    function _endPointer(e) {
+      activePointers.delete(e.pointerId);
+      _saveCurrentRoi();
+      isDragging = false;
+      pointerMode = null;
+      panStart = null;
+      pinchStart = null;
+      pointerMoved = false;
+      _drawCanvas();
+    }
+
+    roiCanvas.addEventListener('pointerup', _endPointer);
+    roiCanvas.addEventListener('pointercancel', _endPointer);
+    roiCanvas.addEventListener('lostpointercapture', _endPointer);
+    window.addEventListener('resize', _drawCanvas);
+
+    // Init
+    _loadPhotoList();
+  })();
+
+  // ── Timelapse ──────────────────────────────────────────
+  (function() {
+    const tlStartBtn  = document.getElementById('timelapse-start-btn');
+    const tlStopBtn   = document.getElementById('timelapse-stop-btn');
+    const tlFpsSlider = document.getElementById('timelapse-fps-slider');
+    const tlFpsValue  = document.getElementById('timelapse-fps-value');
+    const tlStatusRow = document.getElementById('timelapse-status-row');
+
+    tlFpsSlider.addEventListener('input', () => { tlFpsValue.textContent = tlFpsSlider.value; });
+
+    let _tlRunning = false;
+
+    tlStartBtn.onclick = async function() {
+      const exposure = parseFloat(document.getElementById('exposure-slider').value);
+      const gain     = parseFloat(document.getElementById('gain-slider').value);
+      const fps      = parseInt(tlFpsSlider.value);
+      try {
+        tlStartBtn.disabled = true;
+        const r = await fetch('/start_timelapse', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({exposure, gain, output_fps: fps})
+        });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.status === 'success') {
+          _tlRunning = true;
+          tlStopBtn.disabled = false;
+          tlStatusRow.textContent = 'Capturing… frames: 0';
+          showToast('Timelapse started', 'success');
+        } else {
+          tlStartBtn.disabled = false;
+          showToast(d.message || 'Failed to start timelapse', 'error');
+        }
+      } catch(e) {
+        tlStartBtn.disabled = false;
+        showToast('Failed to start timelapse', 'error');
+      }
+    };
+
+    tlStopBtn.onclick = async function() {
+      try {
+        tlStopBtn.disabled = true;
+        const r = await fetch('/stop_timelapse', {method: 'POST'});
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.status === 'success') {
+          tlStatusRow.textContent = 'Stopping… assembling video, please wait';
+          showToast(d.message || 'Stopping timelapse', 'info');
+        } else {
+          tlStopBtn.disabled = false;
+          showToast(d.message || 'Failed to stop timelapse', 'error');
+        }
+      } catch(e) {
+        tlStopBtn.disabled = false;
+        showToast('Failed to stop timelapse', 'error');
+      }
+    };
+
+    async function pollTimelapse() {
+      if (isBusyOperation) return;
+      try {
+        const r = await fetch('/timelapse_status');
+        const d = await r.json().catch(() => null);
+        if (!d) return;
+        if (d.running) {
+          _tlRunning = true;
+          tlStartBtn.disabled = true;
+          tlStopBtn.disabled = false;
+          tlStatusRow.textContent = `Capturing… frames: ${d.frame_count}`;
+        } else if (_tlRunning) {
+          // just finished
+          _tlRunning = false;
+          tlStartBtn.disabled = false;
+          tlStopBtn.disabled = true;
+          tlStatusRow.textContent = d.frame_count >= 2
+            ? `Done — ${d.frame_count} frames assembled into MP4`
+            : 'Done (not enough frames to assemble)';
+          setTimeout(loadVideoList, 1500);
+          refreshStream(2000);
+        }
+      } catch {}
+    }
+    window.pollTimelapse = pollTimelapse;
+  })();
+
+  </script>
+</body>
+</html>
